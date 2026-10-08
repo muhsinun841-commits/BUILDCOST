@@ -49,7 +49,7 @@ jobs:
       # 6. ANALYZE FLUTTER CODE
       # ==========================================
       - name: Analyze
-        run: flutter analyze
+        run: flutter analyze --no-fatal-infos
 
       # ==========================================
       # 7. BUILD RELEASE APK

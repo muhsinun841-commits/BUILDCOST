@@ -19,7 +19,16 @@ jobs:
         uses: actions/checkout@v4
 
       # ==========================================
-      # 2. SETUP FLUTTER
+      # 2. SETUP JAVA 17
+      # ==========================================
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # ==========================================
+      # 3. SETUP FLUTTER
       # ==========================================
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -28,37 +37,43 @@ jobs:
           cache: true
 
       # ==========================================
-      # 3. CREATE ANDROID PROJECT
+      # 4. CREATE ANDROID PROJECT
       # ==========================================
       - name: Create Android project files
         run: flutter create --platforms=android .
 
       # ==========================================
-      # 4. REMOVE DEFAULT FLUTTER TEST
+      # 5. REMOVE DEFAULT FLUTTER TEST
       # ==========================================
       - name: Remove default Flutter test
         run: rm -rf test
 
       # ==========================================
-      # 5. INSTALL DEPENDENCIES
+      # 6. INSTALL DEPENDENCIES
       # ==========================================
       - name: Install dependencies
         run: flutter pub get
 
       # ==========================================
-      # 6. ANALYZE FLUTTER CODE
+      # 7. ANALYZE FLUTTER CODE
       # ==========================================
       - name: Analyze
         run: flutter analyze --no-fatal-infos
 
       # ==========================================
-      # 7. BUILD RELEASE APK
+      # 8. CHECK JAVA VERSION
+      # ==========================================
+      - name: Check Java version
+        run: java -version
+
+      # ==========================================
+      # 9. BUILD RELEASE APK
       # ==========================================
       - name: Build APK
         run: flutter build apk --release
 
       # ==========================================
-      # 8. UPLOAD APK
+      # 10. UPLOAD APK
       # ==========================================
       - name: Upload APK
         uses: actions/upload-artifact@v4

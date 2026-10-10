@@ -1,63 +1,770 @@
 import 'dart:convert';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
-import 'package:excel/excel.dart';
 
-const navy = Color(0xFF102A56), blue = Color(0xFF1E5EFF), orange = Color(0xFFFF8A00), bg = Color(0xFFF5F7FB);
-
-String rupiah(num n) { final s=n.round().toString(); final b=StringBuffer(); for(int i=0;i<s.length;i++){if(i>0&&(s.length-i)%3==0)b.write('.'); b.write(s[i]);} return 'Rp ${b.toString()}'; }
-
-class Project { String id,name,type,location,design; double length,width,budget; int floors,rooms,baths; double progress; Project({required this.id,required this.name,required this.type,required this.location,required this.length,required this.width,required this.floors,required this.rooms,required this.baths,required this.budget,required this.design,this.progress=0}); Map<String,dynamic> toJson()=>{'id':id,'name':name,'type':type,'location':location,'length':length,'width':width,'floors':floors,'rooms':rooms,'baths':baths,'budget':budget,'design':design,'progress':progress}; factory Project.fromJson(Map<String,dynamic> j)=>Project(id:j['id'],name:j['name'],type:j['type'],location:j['location'],length:(j['length'] as num).toDouble(),width:(j['width'] as num).toDouble(),floors:j['floors'],rooms:j['rooms'],baths:j['baths'],budget:(j['budget'] as num).toDouble(),design:j['design'],progress:(j['progress'] as num?)?.toDouble()??0); }
-class MaterialItem { String name,unit,category; double price; MaterialItem(this.name,this.unit,this.category,this.price); }
-final materials=[MaterialItem('Semen','sak','Material',75000),MaterialItem('Pasir','m³','Material',275000),MaterialItem('Batu split','m³','Material',350000),MaterialItem('Bata merah','pcs','Material',1200),MaterialItem('Besi beton','kg','Material',14500),MaterialItem('Keramik','m²','Material',95000),MaterialItem('Cat','kg','Material',65000),MaterialItem('Genteng','pcs','Material',2500),MaterialItem('Kayu/kusen','m²','Material',450000),MaterialItem('Pintu + jendela','set','Material',1800000)];
-
-Future<void> saveProjects(List<Project> ps) async { final p=await SharedPreferences.getInstance(); await p.setString('projects',jsonEncode(ps.map((e)=>e.toJson()).toList())); }
-Future<List<Project>> loadProjects() async { final p=await SharedPreferences.getInstance(); final s=p.getString('projects'); if(s==null)return []; return (jsonDecode(s) as List).map((e)=>Project.fromJson(e)).toList(); }
-
-void main()=>runApp(const BuildCostApp());
-class BuildCostApp extends StatelessWidget{const BuildCostApp({super.key}); @override Widget build(BuildContext c)=>MaterialApp(debugShowCheckedModeBanner:false,title:'BUILDCOST',theme:ThemeData(useMaterial3:true,scaffoldBackgroundColor:bg,colorScheme:ColorScheme.fromSeed(seedColor:blue),fontFamily:'Roboto'),home:const MainShell());}
-class MainShell extends StatefulWidget{const MainShell({super.key}); @override State<MainShell> createState()=>_MainShellState();}
-class _MainShellState extends State<MainShell>{int tab=0; List<Project> ps=[]; bool loading=true; @override void initState(){super.initState(); loadProjects().then((v){setState((){ps=v;loading=false;});});} void refresh()=>loadProjects().then((v)=>setState(()=>ps=v)); @override Widget build(BuildContext c){if(loading)return const Scaffold(body:Center(child:CircularProgressIndicator())); final pages=[HomePage(ps:ps,onRefresh:refresh,onNew:()=>Navigator.push(c,MaterialPageRoute(builder:(_)=>CreateProjectPage(onSaved:refresh)))),ProjectsPage(ps:ps,onRefresh:refresh),MaterialsPage(),AccountPage()]; return Scaffold(body:pages[tab],bottomNavigationBar:NavigationBar(selectedIndex:tab,onDestinationSelected:(i)=>setState(()=>tab=i),destinations:const [NavigationDestination(icon:Icon(Icons.home_outlined),selectedIcon:Icon(Icons.home),label:'Beranda'),NavigationDestination(icon:Icon(Icons.folder_outlined),selectedIcon:Icon(Icons.folder),label:'Proyek'),NavigationDestination(icon:Icon(Icons.inventory_2_outlined),selectedIcon:Icon(Icons.inventory_2),label:'Material'),NavigationDestination(icon:Icon(Icons.person_outline),selectedIcon:Icon(Icons.person),label:'Akun')]));}}
-
-class HomePage extends StatelessWidget{final List<Project> ps; final VoidCallback onRefresh,onNew; const HomePage({super.key,required this.ps,required this.onRefresh,required this.onNew}); @override Widget build(BuildContext c){final p=ps.isEmpty?null:ps.last; return SafeArea(child:ListView(padding:const EdgeInsets.fromLTRB(18,18,18,24),children:[Row(children:[Container(width:44,height:44,decoration:BoxDecoration(color:navy,borderRadius:BorderRadius.circular(14)),child:const Icon(Icons.apartment,color:Colors.white)),const SizedBox(width:12),const Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('BUILDCOST',style:TextStyle(fontSize:21,fontWeight:FontWeight.w900,color:navy)),Text('Construction Planning & Cost Platform',style:TextStyle(fontSize:10,color:Colors.grey))]),const Spacer(),IconButton(onPressed:(){},icon:const Icon(Icons.notifications_none))]),const SizedBox(height:25),const Text('Selamat datang,',style:TextStyle(color:Colors.grey)),const Text('Wujudkan proyek Anda.',style:TextStyle(fontSize:25,fontWeight:FontWeight.bold,color:navy)),const SizedBox(height:16),SizedBox(height:54,child:FilledButton.icon(style:FilledButton.styleFrom(backgroundColor:orange),onPressed:onNew,icon:const Icon(Icons.add),label:const Text('Buat Proyek Baru',style:TextStyle(fontWeight:FontWeight.bold)))),const SizedBox(height:25),_section('Proyek Terakhir',onRefresh),if(p!=null)ProjectCard(p:p,onChanged:onRefresh) else _empty(onNew),const SizedBox(height:24),const Text('Fitur Utama',style:TextStyle(fontSize:18,fontWeight:FontWeight.bold,color:navy)),const SizedBox(height:12),Wrap(spacing:10,runSpacing:10,children:[Feature(icon:Icons.architecture,label:'Desain Proyek',onTap:()=>p==null?onNew():Navigator.push(c,MaterialPageRoute(builder:(_)=>DesignPage(p:p,onSaved:onRefresh)))),Feature(icon:Icons.calculate_outlined,label:'Hitung RAB',onTap:()=>p==null?onNew():Navigator.push(c,MaterialPageRoute(builder:(_)=>RabPage(p:p)))),Feature(icon:Icons.inventory_2_outlined,label:'Harga Material',onTap:()=>Navigator.push(c,MaterialPageRoute(builder:(_)=>MaterialsPage()))),Feature(icon:Icons.auto_awesome,label:'Build AI\nComing Soon',onTap:()=>Navigator.push(c,MaterialPageRoute(builder:(_)=>const AiPage())))]) ]));}}
-Widget _section(String s,VoidCallback cb)=>Row(mainAxisAlignment:MainAxisAlignment.spaceBetween,children:[Text(s,style:const TextStyle(fontSize:18,fontWeight:FontWeight.bold,color:navy)),TextButton(onPressed:cb,child:const Text('Lihat Semua'))]);
-Widget _empty(VoidCallback f)=>Container(padding:const EdgeInsets.all(24),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(18)),child:Column(children:[const Icon(Icons.home_work_outlined,size:45,color:blue),const SizedBox(height:8),const Text('Belum ada proyek'),TextButton(onPressed:f,child:const Text('Buat proyek pertama'))]));
-
-class Feature extends StatelessWidget{final IconData icon;final String label;final VoidCallback onTap;const Feature({super.key,required this.icon,required this.label,required this.onTap});@override Widget build(BuildContext c)=>InkWell(onTap:onTap,borderRadius:BorderRadius.circular(16),child:Container(width:MediaQuery.of(c).size.width/2-23,padding:const EdgeInsets.all(15),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(16),boxShadow:[BoxShadow(color:Colors.black.withOpacity(.04),blurRadius:10)]),child:Row(children:[CircleAvatar(backgroundColor:blue.withOpacity(.1),child:Icon(icon,color:blue)),const SizedBox(width:10),Expanded(child:Text(label,style:const TextStyle(fontWeight:FontWeight.w600))) ])));}
-class ProjectCard extends StatelessWidget{final Project p;final VoidCallback onChanged;const ProjectCard({super.key,required this.p,required this.onChanged});@override Widget build(BuildContext c)=>InkWell(onTap:()=>Navigator.push(c,MaterialPageRoute(builder:(_)=>DashboardPage(p:p,onChanged:onChanged))),child:Container(padding:const EdgeInsets.all(16),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(18)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Row(children:[CircleAvatar(backgroundColor:blue.withOpacity(.1),child:const Icon(Icons.home,color:blue)),const SizedBox(width:12),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(p.name,style:const TextStyle(fontWeight:FontWeight.bold,fontSize:16)),Text('${p.type} • ${p.location}',style:const TextStyle(color:Colors.grey,fontSize:12))])),Text(rupiah(p.budget),style:const TextStyle(fontWeight:FontWeight.bold,color:navy))]),const SizedBox(height:12),LinearProgressIndicator(value:p.progress/100,minHeight:7,borderRadius:BorderRadius.circular(10)),const SizedBox(height:5),Text('${p.progress.toStringAsFixed(0)}% progress',style:const TextStyle(fontSize:11,color:Colors.grey))]));}
-
-class CreateProjectPage extends StatefulWidget{final VoidCallback onSaved;const CreateProjectPage({super.key,required this.onSaved});@override State<CreateProjectPage> createState()=>_CreateProjectPageState();}
-class _CreateProjectPageState extends State<CreateProjectPage>{String type='Rumah';final types=['Rumah','Gedung','Pabrik','Sekolah','Rumah Sakit','Hotel','Jalan','Jembatan','Bandara','Pelabuhan','Infrastruktur'];final icons=[Icons.home,Icons.apartment,Icons.factory,Icons.school,Icons.local_hospital,Icons.hotel,Icons.route,Icons.architecture,Icons.flight,Icons.anchor,Icons.construction];@override Widget build(BuildContext c)=>Scaffold(appBar:AppBar(title:const Text('Pilih Jenis Proyek')),body:ListView(padding:const EdgeInsets.all(18),children:[const Text('Apa yang ingin Anda bangun?',style:TextStyle(fontSize:23,fontWeight:FontWeight.bold,color:navy)),const SizedBox(height:6),const Text('Pilih kategori proyek untuk memulai.'),const SizedBox(height:20),GridView.builder(shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),gridDelegate:const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount:2,crossAxisSpacing:12,mainAxisSpacing:12,childAspectRatio:1.5),itemCount:types.length,itemBuilder:(_,i){final sel=type==types[i];return InkWell(onTap:()=>setState(()=>type=types[i]),child:Container(decoration:BoxDecoration(color:sel?blue:Colors.white,borderRadius:BorderRadius.circular(16),border:Border.all(color:sel?blue:Colors.transparent)),child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[Icon(icons[i],color:sel?Colors.white:blue,size:30),const SizedBox(height:7),Text(types[i],textAlign:TextAlign.center,style:TextStyle(color:sel?Colors.white:navy,fontWeight:FontWeight.w600))])));}),const SizedBox(height:25),FilledButton(onPressed:()=>Navigator.push(c,MaterialPageRoute(builder:(_)=>ProjectFormPage(type:type,onSaved:widget.onSaved))),child:const Text('Lanjut →'))]));}
-
-class ProjectFormPage extends StatefulWidget{final String type;final VoidCallback onSaved;const ProjectFormPage({super.key,required this.type,required this.onSaved});@override State<ProjectFormPage> createState()=>_ProjectFormPageState();}
-class _ProjectFormPageState extends State<ProjectFormPage>{final name=TextEditingController(),loc=TextEditingController(),len=TextEditingController(text:'6'),wid=TextEditingController(text:'9'),budget=TextEditingController();int floors=1,rooms=3,baths=2;@override Widget build(BuildContext c)=>Scaffold(appBar:AppBar(title:const Text('Detail Proyek')),body:ListView(padding:const EdgeInsets.all(18),children:[const Text('Ceritakan detail proyek Anda',style:TextStyle(fontSize:22,fontWeight:FontWeight.bold,color:navy)),const SizedBox(height:16),field('Nama Proyek',name,Icons.edit),field('Lokasi',loc,Icons.location_on_outlined),Row(children:[Expanded(child:field('Lebar (m)',wid,Icons.straighten)),const SizedBox(width:10),Expanded(child:field('Panjang (m)',len,Icons.straighten))]),Row(children:[Expanded(child:DropdownButtonFormField<int>(value:floors,decoration:const InputDecoration(labelText:'Jumlah Lantai',border:OutlineInputBorder()),items:[1,2,3,4,5].map((e)=>DropdownMenuItem(value:e,child:Text('$e Lantai'))).toList(),onChanged:(v)=>setState(()=>floors=v!))),const SizedBox(width:10),Expanded(child:DropdownButtonFormField<int>(value:rooms,decoration:const InputDecoration(labelText:'Kamar',border:OutlineInputBorder()),items:[0,1,2,3,4,5,6].map((e)=>DropdownMenuItem(value:e,child:Text('$e'))).toList(),onChanged:(v)=>setState(()=>rooms=v!))) ]),const SizedBox(height:12),DropdownButtonFormField<int>(value:baths,decoration:const InputDecoration(labelText:'Kamar Mandi',border:OutlineInputBorder()),items:[0,1,2,3,4].map((e)=>DropdownMenuItem(value:e,child:Text('$e'))).toList(),onChanged:(v)=>setState(()=>baths=v!)),const SizedBox(height:12),field('Budget (opsional)',budget,Icons.payments_outlined,keyboard:TextInputType.number),const SizedBox(height:20),FilledButton(onPressed:save,child:const Text('Simpan & Pilih Desain'))]));}
-Widget field(String l,TextEditingController x,IconData i,{TextInputType? keyboard})=>Padding(padding:const EdgeInsets.only(bottom:12),child:TextField(controller:x,keyboardType:keyboard,decoration:InputDecoration(labelText:l,prefixIcon:Icon(i),border:const OutlineInputBorder())));
-Future<void> save()async{if(name.text.trim().isEmpty){ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Nama proyek wajib diisi')));return;}final p=Project(id:DateTime.now().millisecondsSinceEpoch.toString(),name:name.text.trim(),type:widget.type,location:loc.text.trim().isEmpty?'-':loc.text.trim(),length:(double.tryParse(len.text) ?? 6),width:(double.tryParse(wid.text) ?? 9),floors:floors,rooms:rooms,baths:baths,budget:double.tryParse(budget.text.replaceAll('.',''))??0,design:'Belum dipilih');final ps=await loadProjects();ps.add(p);await saveProjects(ps);widget.onSaved();if(!mounted)return;Navigator.pushReplacement(context,MaterialPageRoute(builder:(_)=>DesignPage(p:p,onSaved:widget.onSaved)));}}
-
-class DesignPage extends StatefulWidget{final Project p;final VoidCallback onSaved;const DesignPage({super.key,required this.p,required this.onSaved});@override State<DesignPage> createState()=>_DesignPageState();}
-class _DesignPageState extends State<DesignPage>{final designs=['Minimalis Modern','Modern Tropis','Klasik Elegan','Industrial'];final desc=['Bersih, simpel, efisien','Tropis, terang, sejuk','Mewah, timeless, detail','Tegas, modern, ekspos'];@override Widget build(BuildContext c)=>Scaffold(appBar:AppBar(title:const Text('Pilih Konsep Desain')),body:ListView(padding:const EdgeInsets.all(18),children:[const Text('Pilih gaya desain Anda',style:TextStyle(fontSize:22,fontWeight:FontWeight.bold,color:navy)),const SizedBox(height:16),...List.generate(designs.length,(i)=>Card(margin:const EdgeInsets.only(bottom:12),child:ListTile(contentPadding:const EdgeInsets.all(14),leading:Container(width:60,height:60,decoration:BoxDecoration(color:blue.withOpacity(.1),borderRadius:BorderRadius.circular(14)),child:Icon(i==0?Icons.home:Icons.architecture,color:blue,size:32)),title:Text(designs[i],style:const TextStyle(fontWeight:FontWeight.bold)),subtitle:Text(desc[i]),trailing:FilledButton(onPressed:()=>choose(designs[i]),child:const Text('Pilih')))))]));}
-Future<void> choose(String d)async{final ps=await loadProjects();final i=ps.indexWhere((x)=>x.id==widget.p.id);if(i>=0){ps[i].design=d;await saveProjects(ps);widget.p.design=d;widget.onSaved();}if(!mounted)return;Navigator.pushReplacement(context,MaterialPageRoute(builder:(_)=>DashboardPage(p:widget.p,onChanged:widget.onSaved)));}}
-
-class DashboardPage extends StatelessWidget{final Project p;final VoidCallback onChanged;const DashboardPage({super.key,required this.p,required this.onChanged});@override Widget build(BuildContext c){final area=p.length*p.width;final est=estimate(p);return Scaffold(appBar:AppBar(title:Text(p.name),actions:[PopupMenuButton<String>(onSelected:(v){if(v=='delete')delete(c);if(v=='edit')Navigator.push(c,MaterialPageRoute(builder:(_)=>ProjectFormPage(type:p.type,onSaved:onChanged)));},itemBuilder:(_)=>const [PopupMenuItem(value:'edit',child:Text('Edit proyek')),PopupMenuItem(value:'delete',child:Text('Hapus proyek'))])]),body:ListView(padding:const EdgeInsets.all(18),children:[Container(padding:const EdgeInsets.all(18),decoration:BoxDecoration(gradient:const LinearGradient(colors:[navy,blue]),borderRadius:BorderRadius.circular(20)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(p.design,style:const TextStyle(color:Colors.white,fontSize:22,fontWeight:FontWeight.bold)),Text('${p.type} • ${p.location}',style:const TextStyle(color:Colors.white70)),const SizedBox(height:18),Text('${area.toStringAsFixed(1)} m²',style:const TextStyle(color:Colors.white,fontSize:30,fontWeight:FontWeight.bold)),const Text('Luas dasar proyek',style:TextStyle(color:Colors.white70))]),),const SizedBox(height:14),Row(children:[Expanded(child:dashBtn('Desain',Icons.architecture,blue,()=>Navigator.push(c,MaterialPageRoute(builder:(_)=>DesignPage(p:p,onSaved:onChanged))))),const SizedBox(width:10),Expanded(child:dashBtn('RAB',Icons.calculate,orange,()=>Navigator.push(c,MaterialPageRoute(builder:(_)=>RabPage(p:p))))) ]),const SizedBox(height:10),dashBtn('Material & Harga',Icons.inventory_2,Colors.green,()=>Navigator.push(c,MaterialPageRoute(builder:(_)=>MaterialsPage())),full:true),const SizedBox(height:20),const Text('Rincian Proyek',style:TextStyle(fontSize:18,fontWeight:FontWeight.bold,color:navy)),...rows([['Jenis Proyek',p.type],['Lokasi',p.location],['Ukuran','${p.width} × ${p.length} m'],['Lantai','${p.floors} lantai'],['Kamar','${p.rooms}'],['Kamar Mandi','${p.baths}'],['Konsep',p.design]]),const SizedBox(height:12),Container(padding:const EdgeInsets.all(18),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(18)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('Estimasi Total Biaya',style:TextStyle(color:Colors.grey)),Text(rupiah(est.total),style:const TextStyle(fontSize:25,fontWeight:FontWeight.bold,color:navy)),const SizedBox(height:8),Text('Material ${rupiah(est.material)} • Tenaga ${rupiah(est.labor)} • Lainnya ${rupiah(est.other)}',style:const TextStyle(fontSize:12,color:Colors.grey)),const SizedBox(height:12),FilledButton.icon(onPressed:()=>Navigator.push(c,MaterialPageRoute(builder:(_)=>RabPage(p:p))),icon:const Icon(Icons.receipt_long),label:const Text('Lihat Detail RAB'))]))]));}
-Future<void> delete(BuildContext c)async{final ok=await showDialog<bool>(context:c,builder:(_)=>AlertDialog(title:const Text('Hapus proyek?'),content:const Text('Data proyek akan dihapus dari perangkat.'),actions:[TextButton(onPressed:()=>Navigator.pop(c,false),child:const Text('Batal')),FilledButton(onPressed:()=>Navigator.pop(c,true),child:const Text('Hapus'))]));if(ok==true){final ps=await loadProjects();ps.removeWhere((x)=>x.id==p.id);await saveProjects(ps);onChanged();if(c.mounted)Navigator.pop(c);}}
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const BuildCostApp());
 }
-Widget dashBtn(String s,IconData i,Color color,VoidCallback f,{bool full=false})=>SizedBox(width:full?double.infinity:null,height:60,child:FilledButton.icon(style:FilledButton.styleFrom(backgroundColor:color),onPressed:f,icon:Icon(i),label:Text(s)));
-Widget rows(List<List<String>> data)=>Column(children:data.map((r)=>Padding(padding:const EdgeInsets.symmetric(vertical:8),child:Row(mainAxisAlignment:MainAxisAlignment.spaceBetween,children:[Text(r[0],style:const TextStyle(color:Colors.grey)),Flexible(child:Text(r[1],textAlign:TextAlign.right,style:const TextStyle(fontWeight:FontWeight.w600))) ]))).toList());
 
-class Estimate{double material,labor,other,total;Estimate(this.material,this.labor,this.other):total=material+labor+other;}
-Estimate estimate(Project p){final area=p.length*p.width*math.max(1,p.floors);final base=area*320000;return Estimate(base*.63,base*.26,base*.11);}
-class RabPage extends StatelessWidget{final Project p;const RabPage({super.key,required this.p});@override Widget build(BuildContext c){final e=estimate(p);final items=[['Pekerjaan persiapan & tanah',e.total*.06],['Pondasi & struktur',e.total*.18],['Dinding & plester',e.total*.12],['Atap & plafon',e.total*.13],['Lantai & finishing',e.total*.14],['Pintu, jendela & kusen',e.total*.10],['Listrik & plumbing',e.total*.09],['Cat & finishing akhir',e.total*.08],['Lain-lain/cadangan',e.total*.10]];return Scaffold(appBar:AppBar(title:const Text('Ringkasan Biaya (RAB)'),actions:[IconButton(onPressed:()=>exportPdf(p,e,items),icon:const Icon(Icons.picture_as_pdf)),IconButton(onPressed:()=>exportExcel(p,e,items),icon:const Icon(Icons.table_view))]),body:ListView(padding:const EdgeInsets.all(18),children:[Container(padding:const EdgeInsets.all(20),decoration:BoxDecoration(color:navy,borderRadius:BorderRadius.circular(20)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('Total Estimasi Biaya',style:TextStyle(color:Colors.white70)),Text(rupiah(e.total),style:const TextStyle(color:Colors.white,fontSize:30,fontWeight:FontWeight.bold)),const SizedBox(height:12),Text('Material ${rupiah(e.material)}',style:const TextStyle(color:Colors.white)),Text('Tenaga Kerja ${rupiah(e.labor)}',style:const TextStyle(color:Colors.white)),Text('Lainnya ${rupiah(e.other)}',style:const TextStyle(color:Colors.white))]),),const SizedBox(height:20),const Text('Rincian Pekerjaan',style:TextStyle(fontSize:19,fontWeight:FontWeight.bold,color:navy)),const SizedBox(height:8),...items.map((x)=>Card(child:ListTile(title:Text(x[0]),trailing:Text(rupiah(x[1] as double),style:const TextStyle(fontWeight:FontWeight.bold))))),const SizedBox(height:10),const Text('Catatan: angka ini adalah estimasi awal untuk perencanaan, bukan perhitungan struktur/engineering final.',style:TextStyle(fontSize:12,color:Colors.grey))]));}}
-Future<void> exportPdf(Project p,Estimate e,List<List<dynamic>> items)async{final doc=pw.Document();doc.addPage(pw.Page(build:(_)=>pw.Column(crossAxisAlignment:pw.CrossAxisAlignment.start,children:[pw.Text('BUILDCOST - RAB',style:pw.TextStyle(fontSize:22,fontWeight:pw.FontWeight.bold)),pw.SizedBox(height:8),pw.Text(p.name),pw.Text('${p.type} • ${p.location}'),pw.SizedBox(height:15),pw.Text('TOTAL ${rupiah(e.total)}',style:pw.TextStyle(fontSize:18,fontWeight:pw.FontWeight.bold)),pw.SizedBox(height:15),...items.map((x)=>pw.Row(mainAxisAlignment:pw.MainAxisAlignment.spaceBetween,children:[pw.Text(x[0].toString()),pw.Text(rupiah(x[1] as double))]))]));await Printing.layoutPdf(onLayout:(_)=>doc.save());}
-Future<void> exportExcel(Project p,Estimate e,List<List<dynamic>> items)async{final book=Excel.createExcel();final sh=book['RAB'];sh.appendRow([TextCellValue('BUILDCOST - ${p.name}')]);sh.appendRow([TextCellValue('Pekerjaan'),TextCellValue('Estimasi')]);for(final x in items){sh.appendRow([TextCellValue(x[0].toString()),DoubleCellValue(x[1] as double)]);}sh.appendRow([TextCellValue('TOTAL'),DoubleCellValue(e.total)]);final bytes=book.encode();if(bytes!=null)await Printing.sharePdf(bytes:bytes,filename:'RAB_BUILDCOST.xlsx');}
+const Color navy = Color(0xFF102A56);
+const Color blue = Color(0xFF1E5EFF);
+const Color orange = Color(0xFFFF8A00);
+const Color pageBg = Color(0xFFF5F7FB);
 
-class ProjectsPage extends StatefulWidget{final List<Project> ps;final VoidCallback onRefresh;const ProjectsPage({super.key,required this.ps,required this.onRefresh});@override State<ProjectsPage> createState()=>_ProjectsPageState();}
-class _ProjectsPageState extends State<ProjectsPage>{String q='';@override Widget build(BuildContext c){final list=widget.ps.where((p)=>p.name.toLowerCase().contains(q.toLowerCase())||p.type.toLowerCase().contains(q.toLowerCase())).toList();return SafeArea(child:Column(children:[Padding(padding:const EdgeInsets.all(18),child:TextField(onChanged:(v)=>setState(()=>q=v),decoration:const InputDecoration(prefixIcon:Icon(Icons.search),hintText:'Cari proyek...',border:OutlineInputBorder()))),Expanded(child:list.isEmpty?const Center(child:Text('Belum ada proyek')):ListView.builder(padding:const EdgeInsets.symmetric(horizontal:18),itemCount:list.length,itemBuilder:(_,i)=>Padding(padding:const EdgeInsets.only(bottom:10),child:ProjectCard(p:list[i],onChanged:widget.onRefresh))))]));}}
+String rupiah(num value) {
+  final s = value.round().toString();
+  final b = StringBuffer();
+  for (var i = 0; i < s.length; i++) {
+    b.write(s[i]);
+    final left = s.length - i - 1;
+    if (left > 0 && left % 3 == 0) b.write('.');
+  }
+  return 'Rp $b';
+}
 
-class MaterialsPage extends StatefulWidget{const MaterialsPage({super.key});@override State<MaterialsPage> createState()=>_MaterialsPageState();}
-class _MaterialsPageState extends State<MaterialsPage>{String q='';@override Widget build(BuildContext c){final list=materials.where((m)=>m.name.toLowerCase().contains(q.toLowerCase())).toList();return SafeArea(child:Column(children:[Padding(padding:const EdgeInsets.all(18),child:Row(children:[Expanded(child:TextField(onChanged:(v)=>setState(()=>q=v),decoration:const InputDecoration(prefixIcon:Icon(Icons.search),hintText:'Cari material',border:OutlineInputBorder()))),IconButton(onPressed:()=>showEdit(c),icon:const Icon(Icons.add_circle,color:blue))])),Expanded(child:ListView.builder(padding:const EdgeInsets.symmetric(horizontal:18),itemCount:list.length,itemBuilder:(_,i)=>Card(child:ListTile(title:Text(list[i].name,style:const TextStyle(fontWeight:FontWeight.bold)),subtitle:Text('${list[i].category} • per ${list[i].unit}'),trailing:Text(rupiah(list[i].price)),onTap:()=>showEdit(c,item:list[i])))))]));}void showEdit(BuildContext c,{MaterialItem? item}){final n=TextEditingController(text:item?.name??''),u=TextEditingController(text:item?.unit??'pcs'),pr=TextEditingController(text:item?.price.toStringAsFixed(0)??'0');showDialog(context:c,builder:(_)=>AlertDialog(title:Text(item==null?'Tambah Material':'Edit Harga'),content:Column(mainAxisSize:MainAxisSize.min,children:[TextField(controller:n,decoration:const InputDecoration(labelText:'Nama')),TextField(controller:u,decoration:const InputDecoration(labelText:'Satuan')),TextField(controller:pr,keyboardType:TextInputType.number,decoration:const InputDecoration(labelText:'Harga'))]),actions:[TextButton(onPressed:()=>Navigator.pop(c),child:const Text('Batal')),FilledButton(onPressed:(){if(item!=null){item.name=n.text;item.unit=u.text;item.price=double.tryParse(pr.text)??item.price;}else{materials.add(MaterialItem(n.text,u.text,'Material',double.tryParse(pr.text)??0));}setState((){});Navigator.pop(c);},child:const Text('Simpan'))]));}}
+class BuildCostApp extends StatelessWidget {
+  const BuildCostApp({super.key});
 
-class AccountPage extends StatelessWidget{const AccountPage({super.key});@override Widget build(BuildContext c)=>SafeArea(child:ListView(padding:const EdgeInsets.all(18),children:[const Text('Akun & Pengaturan',style:TextStyle(fontSize:25,fontWeight:FontWeight.bold,color:navy)),const SizedBox(height:18),Card(child:ListTile(leading:const CircleAvatar(child:Icon(Icons.person)),title:const Text('Pengguna BUILDCOST'),subtitle:const Text('Versi 1.0 • Local Mode'),trailing:const Icon(Icons.chevron_right))),Card(child:Column(children:[ListTile(leading:const Icon(Icons.currency_exchange),title:const Text('Mata Uang'),subtitle:const Text('Rupiah (IDR)')),ListTile(leading:const Icon(Icons.straighten),title:const Text('Satuan'),subtitle:const Text('Metrik (m, m², m³)')),ListTile(leading:const Icon(Icons.cloud_outlined),title:const Text('Backup'),subtitle:const Text('Akan tersedia pada versi berikutnya')),ListTile(leading:const Icon(Icons.info_outline),title:const Text('Tentang BUILDCOST'),onTap:()=>showAboutDialog(context:c,applicationName:'BUILDCOST',applicationVersion:'1.0'))]))]));}
-class AiPage extends StatelessWidget{const AiPage({super.key});@override Widget build(BuildContext c)=>Scaffold(appBar:AppBar(title:const Text('Build AI')),body:ListView(padding:const EdgeInsets.all(20),children:[const Icon(Icons.auto_awesome,size:70,color:blue),const SizedBox(height:12),const Text('Asisten Cerdas untuk Proyek Anda',textAlign:TextAlign.center,style:TextStyle(fontSize:24,fontWeight:FontWeight.bold,color:navy)),const SizedBox(height:10),const Text('Build AI akan membantu analisis desain, optimasi biaya, perbandingan material, dan penjelasan RAB.',textAlign:TextAlign.center),const SizedBox(height:24),...['Analisis Proyek','Cari Cara Menghemat Biaya','Bandingkan Material','Jelaskan RAB Saya'].map((x)=>Card(child:ListTile(leading:const Icon(Icons.check_circle,color:blue),title:Text(x),subtitle:const Text('Coming Soon'))))]));}
+  @override
+  Widget build(BuildContext context) => MaterialApp(
+        title: 'BUILDCOST',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          useMaterial3: true,
+          colorScheme: ColorScheme.fromSeed(seedColor: blue),
+          scaffoldBackgroundColor: pageBg,
+          appBarTheme: const AppBarTheme(
+            backgroundColor: navy,
+            foregroundColor: Colors.white,
+          ),
+          inputDecorationTheme: InputDecorationTheme(
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+          ),
+        ),
+        home: const AppShell(),
+      );
+}
+
+class Project {
+  String id, name, type, location, design;
+  double length, width, progress, budget;
+  int floors;
+
+  Project({
+    required this.id,
+    required this.name,
+    required this.type,
+    required this.location,
+    required this.design,
+    required this.length,
+    required this.width,
+    required this.floors,
+    required this.progress,
+    required this.budget,
+  });
+
+  double get area => length * width * floors;
+  // Perkiraan awal: bukan pengganti analisis volume dan harga satuan profesional.
+  double get estimate => budget > 0 ? budget : area * 3200000;
+
+  Map<String, dynamic> toJson() => {
+        'id': id, 'name': name, 'type': type, 'location': location,
+        'design': design, 'length': length, 'width': width,
+        'floors': floors, 'progress': progress, 'budget': budget,
+      };
+
+  factory Project.fromJson(Map<String, dynamic> j) => Project(
+        id: '${j['id'] ?? DateTime.now().microsecondsSinceEpoch}',
+        name: '${j['name'] ?? 'Proyek Baru'}',
+        type: '${j['type'] ?? 'Rumah'}',
+        location: '${j['location'] ?? ''}',
+        design: '${j['design'] ?? 'Minimalis Modern'}',
+        length: (j['length'] as num? ?? 6).toDouble(),
+        width: (j['width'] as num? ?? 9).toDouble(),
+        floors: (j['floors'] as num? ?? 1).toInt(),
+        progress: (j['progress'] as num? ?? 0).toDouble(),
+        budget: (j['budget'] as num? ?? 0).toDouble(),
+      );
+}
+
+class MaterialEntry {
+  String name, unit;
+  double price;
+  MaterialEntry(this.name, this.unit, this.price);
+  Map<String, dynamic> toJson() => {'name': name, 'unit': unit, 'price': price};
+  factory MaterialEntry.fromJson(Map<String, dynamic> j) => MaterialEntry(
+        '${j['name'] ?? ''}', '${j['unit'] ?? 'unit'}',
+        (j['price'] as num? ?? 0).toDouble(),
+      );
+}
+
+class AppShell extends StatefulWidget {
+  const AppShell({super.key});
+  @override
+  State<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends State<AppShell> {
+  int tab = 0;
+  bool loading = true;
+  String userName = 'Pengguna BUILDCOST';
+  List<Project> projects = [];
+  List<MaterialEntry> materials = [
+    MaterialEntry('Semen Portland 50 kg', 'sak', 75000),
+    MaterialEntry('Pasir pasang', 'm³', 280000),
+    MaterialEntry('Batu split', 'm³', 320000),
+    MaterialEntry('Bata merah', 'buah', 1000),
+    MaterialEntry('Besi beton 10 mm', 'batang', 78000),
+    MaterialEntry('Keramik lantai', 'm²', 95000),
+    MaterialEntry('Cat tembok', 'kg', 35000),
+    MaterialEntry('Upah tukang', 'OH', 150000),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    try {
+      final p = prefs.getString('bc_projects_v2');
+      if (p != null) {
+        projects = (jsonDecode(p) as List)
+            .map((e) => Project.fromJson(Map<String, dynamic>.from(e)))
+            .toList();
+      }
+      final m = prefs.getString('bc_materials_v2');
+      if (m != null) {
+        materials = (jsonDecode(m) as List)
+            .map((e) => MaterialEntry.fromJson(Map<String, dynamic>.from(e)))
+            .toList();
+      }
+      userName = prefs.getString('bc_user_v2') ?? userName;
+    } catch (_) {
+      // Jika data lama tidak valid, aplikasi tetap dibuka.
+    }
+    if (mounted) setState(() => loading = false);
+  }
+
+  Future<void> _save() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('bc_projects_v2', jsonEncode(projects.map((e) => e.toJson()).toList()));
+    await prefs.setString('bc_materials_v2', jsonEncode(materials.map((e) => e.toJson()).toList()));
+    await prefs.setString('bc_user_v2', userName);
+  }
+
+  Future<void> _form([Project? existing]) async {
+    final result = await Navigator.push<Project>(
+      context, MaterialPageRoute(builder: (_) => ProjectForm(existing: existing)),
+    );
+    if (result == null) return;
+    final i = projects.indexWhere((p) => p.id == result.id);
+    setState(() {
+      if (i < 0) {
+        projects.insert(0, result);
+      } else {
+        projects[i] = result;
+      }
+    });
+    await _save();
+  }
+
+  Future<void> _detail(Project project) async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ProjectDetail(
+          project: project,
+          materials: materials,
+          onSave: () async {
+            if (mounted) setState(() {});
+            await _save();
+          },
+          onEdit: () => _form(project),
+        ),
+      ),
+    );
+    if (mounted) setState(() {});
+    await _save();
+  }
+
+  Future<void> _materialForm([int? index]) async {
+    final old = index == null ? null : materials[index];
+    final n = TextEditingController(text: old?.name ?? '');
+    final u = TextEditingController(text: old?.unit ?? 'unit');
+    final p = TextEditingController(text: old == null ? '' : old.price.toStringAsFixed(0));
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(old == null ? 'Tambah material' : 'Edit material'),
+        content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: n, decoration: const InputDecoration(labelText: 'Nama material')),
+          const SizedBox(height: 10),
+          TextField(controller: u, decoration: const InputDecoration(labelText: 'Satuan')),
+          const SizedBox(height: 10),
+          TextField(controller: p, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Harga satuan (Rp)')),
+        ])),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Simpan')),
+        ],
+      ),
+    );
+    if (ok == true && n.text.trim().isNotEmpty) {
+      final price = double.tryParse(p.text.replaceAll('.', '').replaceAll(',', '')) ?? 0;
+      setState(() {
+        final entry = MaterialEntry(n.text.trim(), u.text.trim().isEmpty ? 'unit' : u.text.trim(), price);
+        if (index == null) {
+          materials.add(entry);
+        } else {
+          materials[index] = entry;
+        }
+      });
+      await _save();
+    }
+    n.dispose(); u.dispose(); p.dispose();
+  }
+
+  Future<void> _profile() async {
+    final c = TextEditingController(text: userName);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Nama pengguna'),
+        content: TextField(controller: c, decoration: const InputDecoration(labelText: 'Nama')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Simpan')),
+        ],
+      ),
+    );
+    if (ok == true && c.text.trim().isNotEmpty) {
+      setState(() => userName = c.text.trim());
+      await _save();
+    }
+    c.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pages = [_home(), _projectList(), _materialList(), _account()];
+    return Scaffold(
+      appBar: AppBar(
+        title: Row(children: [
+          Container(
+            width: 36, height: 36,
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10)),
+            child: const Icon(Icons.architecture, color: navy),
+          ),
+          const SizedBox(width: 10),
+          const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('BUILDCOST', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.1)),
+            Text('DESAIN • BIAYA • PROGRESS', style: TextStyle(fontSize: 9)),
+          ]),
+        ]),
+      ),
+      body: loading ? const Center(child: CircularProgressIndicator()) : IndexedStack(index: tab, children: pages),
+      floatingActionButton: tab == 0 || tab == 1
+          ? FloatingActionButton.extended(
+              onPressed: () => _form(),
+              backgroundColor: orange,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.add),
+              label: const Text('Buat Proyek'),
+            )
+          : tab == 2
+              ? FloatingActionButton(
+                  onPressed: () => _materialForm(),
+                  backgroundColor: orange,
+                  foregroundColor: Colors.white,
+                  child: const Icon(Icons.add),
+                )
+              : null,
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: tab,
+        onDestinationSelected: (v) => setState(() => tab = v),
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Beranda'),
+          NavigationDestination(icon: Icon(Icons.apartment_outlined), selectedIcon: Icon(Icons.apartment), label: 'Proyek'),
+          NavigationDestination(icon: Icon(Icons.inventory_2_outlined), selectedIcon: Icon(Icons.inventory_2), label: 'Material'),
+          NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Akun'),
+        ],
+      ),
+    );
+  }
+
+  Widget _home() {
+    final total = projects.fold<double>(0, (sum, p) => sum + p.estimate);
+    return ListView(padding: const EdgeInsets.all(16), children: [
+      Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(colors: [navy, blue], begin: Alignment.topLeft, end: Alignment.bottomRight),
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Halo, $userName', style: const TextStyle(color: Colors.white70)),
+          const SizedBox(height: 8),
+          const Text('Rencanakan bangunan dengan lebih terukur.', style: TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 18),
+          Row(children: [
+            Expanded(child: _stat('Proyek tersimpan', '${projects.length}')),
+            const SizedBox(width: 10),
+            Expanded(child: _stat('Estimasi total', rupiah(total))),
+          ]),
+        ]),
+      ),
+      const SizedBox(height: 22),
+      _heading('Akses cepat', 'Mulai sekarang'),
+      const SizedBox(height: 10),
+      Row(children: [
+        Expanded(child: _quick(Icons.add_home_work, 'Buat proyek', () => _form())),
+        const SizedBox(width: 10),
+        Expanded(child: _quick(Icons.calculate_outlined, 'Buka RAB', () {
+          if (projects.isEmpty) {
+            _form();
+          } else {
+            _detail(projects.first);
+          }
+        })),
+      ]),
+      const SizedBox(height: 22),
+      _heading('Proyek terbaru', 'Ketuk untuk detail'),
+      const SizedBox(height: 10),
+      if (projects.isEmpty)
+        _empty('Belum ada proyek', 'Tekan tombol Buat Proyek untuk memulai.')
+      else
+        ...projects.take(5).map(_projectCard),
+      const SizedBox(height: 88),
+    ]);
+  }
+
+  Widget _projectList() => ListView(padding: const EdgeInsets.all(16), children: [
+        _heading('Semua proyek', '${projects.length} tersimpan'),
+        const SizedBox(height: 12),
+        if (projects.isEmpty)
+          _empty('Belum ada proyek', 'Tambahkan proyek pertama kamu.')
+        else
+          ...projects.map(_projectCard),
+        const SizedBox(height: 88),
+      ]);
+
+  Widget _materialList() => ListView(padding: const EdgeInsets.all(16), children: [
+        _heading('Database material', 'Harga dapat diedit'),
+        const SizedBox(height: 12),
+        ...materials.asMap().entries.map((e) => Card(
+              elevation: 0,
+              margin: const EdgeInsets.only(bottom: 8),
+              child: ListTile(
+                leading: const CircleAvatar(backgroundColor: Color(0xFFEAF0FF), child: Icon(Icons.inventory_2_outlined, color: blue)),
+                title: Text(e.value.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text('${rupiah(e.value.price)} / ${e.value.unit}'),
+                trailing: IconButton(icon: const Icon(Icons.edit_outlined), onPressed: () => _materialForm(e.key)),
+              ),
+            )),
+        const SizedBox(height: 88),
+      ]);
+
+  Widget _account() => ListView(padding: const EdgeInsets.all(16), children: [
+        Container(
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(color: navy, borderRadius: BorderRadius.circular(22)),
+          child: const Column(children: [
+            CircleAvatar(radius: 35, backgroundColor: Colors.white, child: Icon(Icons.engineering, color: navy, size: 38)),
+            SizedBox(height: 12),
+            Text('BUILDCOST', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+            Text('Construction Planning & Cost Platform', style: TextStyle(color: Colors.white70), textAlign: TextAlign.center),
+          ]),
+        ),
+        const SizedBox(height: 12),
+        Card(elevation: 0, child: ListTile(leading: const Icon(Icons.person_outline), title: const Text('Nama pengguna'), subtitle: Text(userName), trailing: const Icon(Icons.edit), onTap: _profile)),
+        const Card(elevation: 0, child: ListTile(leading: Icon(Icons.smart_toy_outlined), title: Text('Build AI'), subtitle: Text('Segera hadir setelah fitur utama stabil'), trailing: Icon(Icons.lock_outline))),
+        const Card(elevation: 0, child: ListTile(leading: Icon(Icons.info_outline), title: Text('Tentang BUILDCOST'), subtitle: Text('Membantu merencanakan desain dan estimasi biaya bangunan.'))),
+        const Padding(
+          padding: EdgeInsets.all(12),
+          child: Text('Catatan: estimasi RAB adalah perkiraan awal. Periksa harga lokal dan mintalah pemeriksaan tenaga profesional untuk perhitungan final.', style: TextStyle(color: Colors.black54)),
+        ),
+      ]);
+
+  Widget _projectCard(Project p) => Card(
+        elevation: 0,
+        margin: const EdgeInsets.only(bottom: 10),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: () => _detail(p),
+          child: Padding(
+            padding: const EdgeInsets.all(13),
+            child: Row(children: [
+              Container(
+                width: 54, height: 62,
+                decoration: BoxDecoration(color: navy, borderRadius: BorderRadius.circular(14)),
+                child: const Icon(Icons.home_work_outlined, color: Colors.white, size: 29),
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                Text('${p.type} • ${p.length} × ${p.width} m • ${p.floors} lantai', style: const TextStyle(color: Colors.black54, fontSize: 12)),
+                const SizedBox(height: 5),
+                Text(rupiah(p.estimate), style: const TextStyle(color: blue, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 6),
+                ClipRRect(borderRadius: BorderRadius.circular(10), child: LinearProgressIndicator(value: (p.progress / 100).clamp(0.0, 1.0), minHeight: 5)),
+              ])),
+              PopupMenuButton<String>(
+                onSelected: (v) async {
+                  if (v == 'edit') {
+                    await _form(p);
+                  } else {
+                    final yes = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Hapus proyek?'),
+                        content: Text('Proyek "${p.name}" akan dihapus dari perangkat.'),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+                          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Hapus')),
+                        ],
+                      ),
+                    );
+                    if (yes == true) {
+                      setState(() => projects.removeWhere((x) => x.id == p.id));
+                      await _save();
+                    }
+                  }
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'edit', child: Text('Edit proyek')),
+                  PopupMenuItem(value: 'delete', child: Text('Hapus proyek')),
+                ],
+              ),
+            ]),
+          ),
+        ),
+      );
+
+  Widget _heading(String title, String subtitle) => Row(children: [
+        Expanded(child: Text(title, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: navy))),
+        const SizedBox(width: 6),
+        Text(subtitle, style: const TextStyle(color: Colors.black54, fontSize: 11)),
+      ]);
+
+  Widget _stat(String label, String value) => Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: Colors.white.withOpacity(.13), borderRadius: BorderRadius.circular(14)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+          const SizedBox(height: 4),
+          Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+        ]),
+      );
+
+  Widget _quick(IconData icon, String label, VoidCallback onTap) => Card(
+        elevation: 0,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(children: [
+              Icon(icon, color: blue, size: 30),
+              const SizedBox(height: 8),
+              Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+            ]),
+          ),
+        ),
+      );
+
+  Widget _empty(String title, String desc) => Card(
+        elevation: 0,
+        child: Padding(
+          padding: const EdgeInsets.all(22),
+          child: Column(children: [
+            const Icon(Icons.add_home_work_outlined, color: blue, size: 42),
+            const SizedBox(height: 10),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(height: 5),
+            Text(desc, textAlign: TextAlign.center, style: const TextStyle(color: Colors.black54)),
+          ]),
+        ),
+      );
+}
+
+class ProjectForm extends StatefulWidget {
+  final Project? existing;
+  const ProjectForm({super.key, this.existing});
+  @override
+  State<ProjectForm> createState() => _ProjectFormState();
+}
+
+class _ProjectFormState extends State<ProjectForm> {
+  final keyForm = GlobalKey<FormState>();
+  late final TextEditingController name, location, length, width, floors, budget;
+  late String type, design;
+  late double progress;
+
+  final types = const ['Rumah', 'Gedung', 'Pabrik', 'Sekolah', 'Rumah Sakit', 'Hotel', 'Jalan', 'Jembatan', 'Bandara', 'Pelabuhan', 'Infrastruktur'];
+  final designs = const ['Minimalis Modern', 'Modern Tropis', 'Klasik Elegan', 'Industrial'];
+
+  @override
+  void initState() {
+    super.initState();
+    final p = widget.existing;
+    name = TextEditingController(text: p?.name ?? '');
+    location = TextEditingController(text: p?.location ?? '');
+    length = TextEditingController(text: '${p?.length ?? 6}');
+    width = TextEditingController(text: '${p?.width ?? 9}');
+    floors = TextEditingController(text: '${p?.floors ?? 1}');
+    budget = TextEditingController(text: p == null || p.budget == 0 ? '' : p.budget.toStringAsFixed(0));
+    type = p?.type ?? 'Rumah';
+    design = p?.design ?? designs.first;
+    progress = p?.progress ?? 0;
+  }
+
+  @override
+  void dispose() {
+    name.dispose(); location.dispose(); length.dispose(); width.dispose(); floors.dispose(); budget.dispose();
+    super.dispose();
+  }
+
+  double parse(TextEditingController c, double fallback) => double.tryParse(c.text.trim().replaceAll(',', '.')) ?? fallback;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: Text(widget.existing == null ? 'Buat Proyek' : 'Edit Proyek')),
+        body: Form(
+          key: keyForm,
+          child: ListView(padding: const EdgeInsets.all(16), children: [
+            const Text('DETAIL PROYEK', style: TextStyle(color: blue, fontWeight: FontWeight.w800, letterSpacing: 1)),
+            const SizedBox(height: 12),
+            TextFormField(controller: name, validator: (v) => v == null || v.trim().isEmpty ? 'Nama proyek wajib diisi' : null, decoration: const InputDecoration(labelText: 'Nama proyek', hintText: 'Contoh: Rumah Minimalis 6 × 9')),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: type,
+              decoration: const InputDecoration(labelText: 'Jenis bangunan'),
+              items: types.map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+              onChanged: (v) => setState(() => type = v ?? type),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(controller: location, decoration: const InputDecoration(labelText: 'Lokasi proyek')),
+            const SizedBox(height: 12),
+            Row(children: [
+              Expanded(child: TextFormField(controller: length, keyboardType: const TextInputType.numberWithOptions(decimal: true), validator: _required, decoration: const InputDecoration(labelText: 'Panjang (m)'))),
+              const SizedBox(width: 10),
+              Expanded(child: TextFormField(controller: width, keyboardType: const TextInputType.numberWithOptions(decimal: true), validator: _required, decoration: const InputDecoration(labelText: 'Lebar (m)'))),
+            ]),
+            const SizedBox(height: 12),
+            Row(children: [
+              Expanded(child: TextFormField(controller: floors, keyboardType: TextInputType.number, validator: _required, decoration: const InputDecoration(labelText: 'Jumlah lantai/tingkat'))),
+              const SizedBox(width: 10),
+              Expanded(child: TextFormField(controller: budget, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Anggaran opsional', prefixText: 'Rp '))),
+            ]),
+            const SizedBox(height: 20),
+            const Text('KONSEP DESAIN', style: TextStyle(color: blue, fontWeight: FontWeight.w800, letterSpacing: 1)),
+            const SizedBox(height: 8),
+            ...designs.map(_designCard),
+            const SizedBox(height: 12),
+            Text('Progress pekerjaan: ${progress.toStringAsFixed(0)}%'),
+            Slider(value: progress, min: 0, max: 100, divisions: 20, activeColor: blue, onChanged: (v) => setState(() => progress = v)),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              style: FilledButton.styleFrom(backgroundColor: blue, padding: const EdgeInsets.symmetric(vertical: 16)),
+              onPressed: _save,
+              icon: const Icon(Icons.save_outlined),
+              label: const Text('Simpan Proyek'),
+            ),
+          ]),
+        ),
+      );
+
+  String? _required(String? v) => v == null || v.trim().isEmpty ? 'Wajib diisi' : null;
+
+  Widget _designCard(String value) {
+    final selected = design == value;
+    final icons = <String, IconData>{
+      'Minimalis Modern': Icons.domain,
+      'Modern Tropis': Icons.nature,
+      'Klasik Elegan': Icons.account_balance,
+      'Industrial': Icons.factory,
+    };
+    final descriptions = <String, String>{
+      'Minimalis Modern': 'Garis tegas, sederhana, fungsional',
+      'Modern Tropis': 'Nuansa alami dan ruang terbuka',
+      'Klasik Elegan': 'Proporsi simetris dan detail elegan',
+      'Industrial': 'Karakter kuat dengan material terekspos',
+    };
+    return Card(
+      elevation: 0,
+      color: selected ? const Color(0xFFEAF0FF) : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(15),
+        side: BorderSide(color: selected ? blue : Colors.grey.shade200),
+      ),
+      child: RadioListTile<String>(
+        value: value,
+        groupValue: design,
+        activeColor: blue,
+        onChanged: (v) => setState(() => design = v ?? design),
+        secondary: CircleAvatar(backgroundColor: navy, child: Icon(icons[value], color: Colors.white)),
+        title: Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Text(descriptions[value]!),
+      ),
+    );
+  }
+
+  void _save() {
+    if (!keyForm.currentState!.validate()) return;
+    final l = parse(length, 0);
+    final w = parse(width, 0);
+    final f = int.tryParse(floors.text) ?? 0;
+    if (l <= 0 || w <= 0 || f <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ukuran dan jumlah lantai harus lebih dari nol.')));
+      return;
+    }
+    Navigator.pop(context, Project(
+      id: widget.existing?.id ?? DateTime.now().microsecondsSinceEpoch.toString(),
+      name: name.text.trim(),
+      type: type,
+      location: location.text.trim(),
+      design: design,
+      length: l,
+      width: w,
+      floors: f,
+      progress: progress,
+      budget: parse(budget, 0),
+    ));
+  }
+}
+
+class ProjectDetail extends StatefulWidget {
+  final Project project;
+  final List<MaterialEntry> materials;
+  final Future<void> Function() onSave;
+  final VoidCallback onEdit;
+  const ProjectDetail({super.key, required this.project, required this.materials, required this.onSave, required this.onEdit});
+  @override
+  State<ProjectDetail> createState() => _ProjectDetailState();
+}
+
+class _ProjectDetailState extends State<ProjectDetail> {
+  late double progress;
+
+  static const List<(String, double)> workItems = [
+    ('Persiapan dan pembersihan', .04),
+    ('Pondasi dan pekerjaan tanah', .13),
+    ('Struktur beton dan besi', .20),
+    ('Dinding dan plester', .12),
+    ('Atap dan rangka', .10),
+    ('Lantai dan keramik', .08),
+    ('Pintu, jendela, dan kusen', .08),
+    ('Instalasi listrik dan air', .08),
+    ('Plafon dan pengecatan', .08),
+    ('Finishing dan cadangan', .09),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    progress = widget.project.progress;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = widget.project;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Detail Proyek'), actions: [
+        IconButton(onPressed: widget.onEdit, icon: const Icon(Icons.edit_outlined)),
+      ]),
+      body: ListView(padding: const EdgeInsets.all(16), children: [
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(gradient: const LinearGradient(colors: [navy, blue]), borderRadius: BorderRadius.circular(22)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(p.type.toUpperCase(), style: const TextStyle(color: Colors.white70, letterSpacing: 1)),
+            const SizedBox(height: 6),
+            Text(p.name, style: const TextStyle(color: Colors.white, fontSize: 23, fontWeight: FontWeight.bold)),
+            if (p.location.isNotEmpty) Text(p.location, style: const TextStyle(color: Colors.white70)),
+            const SizedBox(height: 18),
+            Text(rupiah(p.estimate), style: const TextStyle(color: Colors.white, fontSize: 25, fontWeight: FontWeight.w900)),
+            const Text('Estimasi biaya awal', style: TextStyle(color: Colors.white70)),
+          ]),
+        ),
+        const SizedBox(height: 12),
+        Row(children: [
+          Expanded(child: _metric('Luas perkiraan', '${p.area.toStringAsFixed(1)} m²', Icons.square_foot)),
+          const SizedBox(width: 10),
+          Expanded(child: _metric('Konsep desain', p.design, Icons.architecture)),
+        ]),
+        const SizedBox(height: 20),
+        const Text('Progress proyek', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: navy)),
+        Text('${progress.toStringAsFixed(0)}% selesai'),
+        Slider(
+          value: progress, min: 0, max: 100, divisions: 20, activeColor: blue,
+          onChanged: (v) => setState(() => progress = v),
+          onChangeEnd: (v) async {
+            p.progress = v;
+            await widget.onSave();
+          },
+        ),
+        const SizedBox(height: 12),
+        const Text('Rencana Anggaran Biaya (RAB)', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: navy)),
+        const SizedBox(height: 4),
+        const Text('Pembagian ini merupakan estimasi kasar, bukan RAB final berbasis volume dan analisis harga satuan.', style: TextStyle(color: Colors.black54, fontSize: 12)),
+        const SizedBox(height: 10),
+        ...workItems.map((item) => Card(
+              elevation: 0,
+              margin: const EdgeInsets.only(bottom: 7),
+              child: Padding(
+                padding: const EdgeInsets.all(13),
+                child: Row(children: [
+                  Expanded(child: Text(item.$1, style: const TextStyle(fontWeight: FontWeight.w600))),
+                  Text('${(item.$2 * 100).toStringAsFixed(0)}%', style: const TextStyle(color: Colors.black54)),
+                  const SizedBox(width: 10),
+                  Text(rupiah(p.estimate * item.$2), style: const TextStyle(fontWeight: FontWeight.bold, color: blue)),
+                ]),
+              ),
+            )),
+        Card(
+          elevation: 0,
+          child: Padding(
+            padding: const EdgeInsets.all(15),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Contoh harga material tersimpan', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              ...widget.materials.take(5).map((m) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(children: [
+                      Expanded(child: Text(m.name)),
+                      Text('${rupiah(m.price)}/${m.unit}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                    ]),
+                  )),
+            ]),
+          ),
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(onPressed: widget.onEdit, icon: const Icon(Icons.edit_outlined), label: const Text('Edit detail proyek')),
+      ]),
+    );
+  }
+
+  Widget _metric(String title, String value, IconData icon) => Card(
+        elevation: 0,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(icon, color: blue),
+            const SizedBox(height: 8),
+            Text(title, style: const TextStyle(color: Colors.black54, fontSize: 12)),
+            const SizedBox(height: 4),
+            Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+          ]),
+        ),
+      );
+}

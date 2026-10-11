@@ -23,14 +23,7 @@ jobs:
         run: |
           mkdir -p assets/icon
           if [ ! -f assets/icon/buildcost_icon.png ]; then
-            python3 - <<'PY'
-            import struct,zlib
-            # 1x1 navy PNG fallback; replace with approved icon asset for branded launcher.
-            def chunk(t,d): return struct.pack('!I',len(d))+t+d+struct.pack('!I',zlib.crc32(t+d)&0xffffffff)
-            raw=b'\x00\x10\x2a\x56\xff'
-            png=b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('!2I5B',1,1,8,6,0,0,0))+chunk(b'IDAT',zlib.compress(raw))+chunk(b'IEND',b'')
-            open('assets/icon/buildcost_icon.png','wb').write(png)
-            PY
+            python3 -c "import os, struct, zlib; p='assets/icon/buildcost_icon.png'; w=h=1; raw=b'\x00\x10\x2a\x56\xff'; chunk=lambda t,d: struct.pack('!I',len(d))+t+d+struct.pack('!I',zlib.crc32(t+d)&0xffffffff); png=b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('!2I5B',w,h,8,6,0,0,0))+chunk(b'IDAT',zlib.compress(raw))+chunk(b'IEND',b''); open(p,'wb').write(png)"
           fi
       - name: Create Android project
         run: flutter create --platforms=android .

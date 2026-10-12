@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
 import 'package:excel/excel.dart' as xl;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -1784,7 +1783,9 @@ Widget materialPage() {
         emptyState(
           icon: Icons.inventory_2_outlined,
           title: 'Material tidak ditemukan',
-          subtitle: 'Tambahkan material baru atau ubah kata pencarian.',
+          message: 'Tambahkan material baru atau ubah kata pencarian.',
+          buttonText: 'Tambah Material',
+          onPressed: () => openMaterialForm(),
         )
       else
         ...filteredMaterials.map(_materialCard),
@@ -2131,19 +2132,21 @@ Widget accountPage() {
         children: [
           Expanded(
             child: summaryCard(
-              'Proyek',
-              '${projects.length}',
-              Icons.apartment_outlined,
-              bcBlue,
+              title: 'Proyek',
+              value: '${projects.length}',
+              subtitle: 'Proyek tersimpan',
+              icon: Icons.apartment_outlined,
+              color: bcBlue,
             ),
           ),
           const SizedBox(width: 10),
           Expanded(
             child: summaryCard(
-              'Material',
-              '${materials.length}',
-              Icons.inventory_2_outlined,
-              bcOrange,
+              title: 'Material',
+              value: '${materials.length}',
+              subtitle: 'Material tersimpan',
+              icon: Icons.inventory_2_outlined,
+              color: bcOrange,
             ),
           ),
         ],

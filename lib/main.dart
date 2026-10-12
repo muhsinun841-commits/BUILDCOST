@@ -1510,7 +1510,8 @@ class _BuildCostHomeState extends State<BuildCostHome> {
 
                     await saveData();
 
-                    if (!mounted) return;
+                    // Check each context against its own lifecycle after the await.
+                    if (!dialogContext.mounted || !mounted) return;
 
                     setState(() {});
 

@@ -1629,25 +1629,726 @@ Future<void> openProjectDetail(BuildProject project) async {
 }
 
 Future<void> openRab(BuildProject project) async {
-  // Halaman RAB akan dilengkapi pada Bagian 4.
-  // Untuk sementara, fungsi ini menampilkan informasi.
-  await showDialog<void>(
-    context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: const Text('Rencana Anggaran Biaya'),
-      content: const Text(
-        'Menu RAB sudah disiapkan. '
-        'Fitur perhitungan, tambah pekerjaan, edit harga, '
-        'dan ekspor laporan akan ditambahkan pada Bagian 4.',
+  await Navigator.push<void>(
+    context,
+    MaterialPageRoute<void>(
+      builder: (_) => RabPage(
+        project: project,
+        onSave: saveData,
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(dialogContext),
-          child: const Text('Tutup'),
+    ),
+  );
+  if (mounted) setState(() {});
+}
+
+
+
+// ============================================================
+// BAGIAN 5A: MANAJEMEN MATERIAL DAN AKUN
+// Letakkan di dalam class _BuildCostHomeState
+// ============================================================
+
+String materialSearch = '';
+
+Widget materialPage() {
+  final query = materialSearch.trim().toLowerCase();
+
+  final filteredMaterials = materials.where((material) {
+    return material.name.toLowerCase().contains(query) ||
+        material.unit.toLowerCase().contains(query);
+  }).toList();
+
+  return ListView(
+    padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+    children: [
+      Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [bcNavy, bcBlue],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'DATABASE MATERIAL',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 10,
+                letterSpacing: 1.3,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Harga Material Bangunan',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 21,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${materials.length} material tersimpan',
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 15),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    color: Colors.white,
+                    size: 19,
+                  ),
+                  SizedBox(width: 9),
+                  Expanded(
+                    child: Text(
+                      'Perbarui harga sesuai survei toko dan kondisi '
+                      'daerah proyek. Harga di aplikasi merupakan '
+                      'referensi yang dapat diubah.',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(height: 16),
+      TextField(
+        onChanged: (value) {
+          setState(() => materialSearch = value);
+        },
+        decoration: InputDecoration(
+          hintText: 'Cari material, misalnya semen...',
+          prefixIcon: const Icon(Icons.search),
+          suffixIcon: materialSearch.isEmpty
+              ? null
+              : IconButton(
+                  onPressed: () {
+                    setState(() => materialSearch = '');
+                  },
+                  icon: const Icon(Icons.close),
+                ),
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide.none,
+          ),
+        ),
+      ),
+      const SizedBox(height: 16),
+      Row(
+        children: [
+          const Expanded(
+            child: Text(
+              'Daftar Material',
+              style: TextStyle(
+                color: bcNavy,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          Text(
+            '${filteredMaterials.length} item',
+            style: const TextStyle(
+              color: Colors.black54,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 10),
+      if (filteredMaterials.isEmpty)
+        emptyState(
+          icon: Icons.inventory_2_outlined,
+          title: 'Material tidak ditemukan',
+          subtitle: 'Tambahkan material baru atau ubah kata pencarian.',
+        )
+      else
+        ...filteredMaterials.map(_materialCard),
+    ],
+  );
+}
+
+Widget _materialCard(BuildMaterial material) {
+  return Container(
+    margin: const EdgeInsets.only(bottom: 10),
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(15),
+      border: Border.all(color: const Color(0xFFE6EAF0)),
+    ),
+    child: Row(
+      children: [
+        Container(
+          width: 45,
+          height: 45,
+          decoration: BoxDecoration(
+            color: bcBlue.withValues(alpha: 0.09),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Icon(
+            Icons.inventory_2_outlined,
+            color: bcBlue,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                material.name,
+                style: const TextStyle(
+                  color: bcNavy,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                'Satuan: ${material.unit}',
+                style: const TextStyle(
+                  color: Colors.black54,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                '${rupiah(material.price)} / ${material.unit}',
+                style: const TextStyle(
+                  color: bcBlue,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+        PopupMenuButton<String>(
+          onSelected: (value) {
+            if (value == 'edit') {
+              openMaterialForm(material: material);
+            } else if (value == 'delete') {
+              _deleteMaterial(material);
+            }
+          },
+          itemBuilder: (context) => const [
+            PopupMenuItem(
+              value: 'edit',
+              child: Row(
+                children: [
+                  Icon(Icons.edit_outlined),
+                  SizedBox(width: 8),
+                  Text('Edit'),
+                ],
+              ),
+            ),
+            PopupMenuItem(
+              value: 'delete',
+              child: Row(
+                children: [
+                  Icon(Icons.delete_outline, color: bcRed),
+                  SizedBox(width: 8),
+                  Text('Hapus'),
+                ],
+              ),
+            ),
+          ],
         ),
       ],
     ),
   );
+}
+
+Future<void> openMaterialForm({BuildMaterial? material}) async {
+  final nameController = TextEditingController(
+    text: material?.name ?? '',
+  );
+  final unitController = TextEditingController(
+    text: material?.unit ?? 'sak',
+  );
+  final priceController = TextEditingController(
+    text: material == null ? '' : material.price.toString(),
+  );
+
+  final formKey = GlobalKey<FormState>();
+
+  final result = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) {
+      return AlertDialog(
+        title: Text(
+          material == null ? 'Tambah Material' : 'Edit Material',
+        ),
+        content: Form(
+          key: formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Nama material',
+                    hintText: 'Contoh: Semen Portland',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Nama material wajib diisi';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: unitController,
+                  decoration: const InputDecoration(
+                    labelText: 'Satuan',
+                    hintText: 'sak, kg, m, m², m³, unit',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Satuan wajib diisi';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: priceController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: 'Harga per satuan (Rp)',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    if (parseNumber(value ?? '') < 0) {
+                      return 'Harga tidak boleh negatif';
+                    }
+                    if ((value ?? '').trim().isEmpty) {
+                      return 'Harga wajib diisi';
+                    }
+                    return null;
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.pop(dialogContext, true);
+              }
+            },
+            child: const Text('Simpan'),
+          ),
+        ],
+      );
+    },
+  );
+
+  if (result == true) {
+    final newMaterial = BuildMaterial(
+      name: nameController.text.trim(),
+      unit: unitController.text.trim(),
+      price: parseNumber(priceController.text),
+    );
+
+    setState(() {
+      if (material == null) {
+        materials.add(newMaterial);
+      } else {
+        final index = materials.indexOf(material);
+        if (index >= 0) {
+          materials[index] = newMaterial;
+        }
+      }
+    });
+
+    await saveData();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            material == null
+                ? 'Material berhasil ditambahkan.'
+                : 'Material berhasil diperbarui.',
+          ),
+        ),
+      );
+    }
+  }
+
+  nameController.dispose();
+  unitController.dispose();
+  priceController.dispose();
+}
+
+Future<void> _deleteMaterial(BuildMaterial material) async {
+  final confirm = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Hapus material?'),
+      content: Text(
+        'Material "${material.name}" akan dihapus dari daftar.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, false),
+          child: const Text('Batal'),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: bcRed,
+            foregroundColor: Colors.white,
+          ),
+          onPressed: () => Navigator.pop(dialogContext, true),
+          child: const Text('Hapus'),
+        ),
+      ],
+    ),
+  );
+
+  if (confirm == true) {
+    setState(() => materials.remove(material));
+    await saveData();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Material berhasil dihapus.'),
+        ),
+      );
+    }
+  }
+}
+
+// ============================================================
+// HALAMAN AKUN DAN PENGATURAN
+// ============================================================
+
+Widget accountPage() {
+  return ListView(
+    padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+    children: [
+      Container(
+        padding: const EdgeInsets.all(22),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [bcNavy, bcBlue],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(22),
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: 76,
+              height: 76,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.14),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.35),
+                  width: 2,
+                ),
+              ),
+              child: const Icon(
+                Icons.person_outline,
+                color: Colors.white,
+                size: 42,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              username,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 5),
+            const Text(
+              'BUILDCOST V3',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 12,
+                letterSpacing: 1.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(height: 20),
+      const Text(
+        'Ringkasan Data',
+        style: TextStyle(
+          color: bcNavy,
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      const SizedBox(height: 12),
+      Row(
+        children: [
+          Expanded(
+            child: summaryCard(
+              'Proyek',
+              '${projects.length}',
+              Icons.apartment_outlined,
+              bcBlue,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: summaryCard(
+              'Material',
+              '${materials.length}',
+              Icons.inventory_2_outlined,
+              bcOrange,
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 22),
+      const Text(
+        'Pengaturan',
+        style: TextStyle(
+          color: bcNavy,
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      const SizedBox(height: 10),
+      _accountMenuTile(
+        icon: Icons.person_outline,
+        title: 'Ubah Nama Pengguna',
+        subtitle: 'Atur nama yang tampil di aplikasi',
+        onTap: _changeUsername,
+      ),
+      _accountMenuTile(
+        icon: Icons.storage_outlined,
+        title: 'Penyimpanan Lokal',
+        subtitle: 'Data disimpan di perangkat ini',
+        onTap: _showStorageInfo,
+      ),
+      _accountMenuTile(
+        icon: Icons.info_outline,
+        title: 'Tentang BUILDCOST',
+        subtitle: 'Informasi versi dan fungsi aplikasi',
+        onTap: _showAbout,
+      ),
+      const SizedBox(height: 20),
+      Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: const Color(0xFFE6EAF0)),
+        ),
+        child: const Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              Icons.shield_outlined,
+              color: bcGreen,
+              size: 22,
+            ),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Data proyek dan material pada versi ini disimpan secara '
+                'lokal di perangkat. Data belum otomatis tersinkron '
+                'ke akun online atau perangkat lain.',
+                style: TextStyle(
+                  color: Colors.black54,
+                  fontSize: 12,
+                  height: 1.5,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
+}
+
+Widget _accountMenuTile({
+  required IconData icon,
+  required String title,
+  required String subtitle,
+  required VoidCallback onTap,
+}) {
+  return Card(
+    margin: const EdgeInsets.only(bottom: 9),
+    child: ListTile(
+      leading: Container(
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          color: bcBlue.withValues(alpha: 0.09),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon, color: bcBlue),
+      ),
+      title: Text(
+        title,
+        style: const TextStyle(
+          color: bcNavy,
+          fontWeight: FontWeight.w600,
+          fontSize: 14,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: const TextStyle(fontSize: 11),
+      ),
+      trailing: const Icon(
+        Icons.chevron_right,
+        color: Colors.black45,
+      ),
+      onTap: onTap,
+    ),
+  );
+}
+
+Future<void> _changeUsername() async {
+  final controller = TextEditingController(text: username);
+
+  final result = await showDialog<String>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Nama Pengguna'),
+      content: TextField(
+        controller: controller,
+        autofocus: true,
+        maxLength: 40,
+        decoration: const InputDecoration(
+          labelText: 'Nama',
+          hintText: 'Masukkan nama pengguna',
+          border: OutlineInputBorder(),
+        ),
+        onSubmitted: (value) {
+          Navigator.pop(dialogContext, value.trim());
+        },
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext),
+          child: const Text('Batal'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            Navigator.pop(
+              dialogContext,
+              controller.text.trim(),
+            );
+          },
+          child: const Text('Simpan'),
+        ),
+      ],
+    ),
+  );
+
+  controller.dispose();
+
+  if (result != null && result.trim().isNotEmpty) {
+    setState(() => username = result.trim());
+
+    await saveData();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Nama pengguna berhasil disimpan.'),
+        ),
+      );
+    }
+  }
+}
+
+void _showStorageInfo() {
+  showDialog<void>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Penyimpanan Lokal'),
+      content: const Text(
+        'BUILDCOST menggunakan SharedPreferences untuk menyimpan '
+        'data proyek, material, dan nama pengguna di perangkat ini. '
+        'Data tidak otomatis tersedia di perangkat lain. '
+        'Menghapus data aplikasi atau menghapus aplikasi dapat '
+        'menghilangkan data lokal.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext),
+          child: const Text('Mengerti'),
+        ),
+      ],
+    ),
+  );
+}
+
+void _showAbout() {
+  showAboutDialog(
+    context: context,
+    applicationName: 'BUILDCOST',
+    applicationVersion: '3.0',
+    applicationLegalese: 'Construction Planning & Cost Platform',
+    children: const [
+      SizedBox(height: 12),
+      Text(
+        'Aplikasi perencanaan proyek, pengelolaan material, '
+        'dan estimasi Rencana Anggaran Biaya.',
+      ),
+      SizedBox(height: 8),
+      Text(
+        'Hasil estimasi perlu diperiksa dan disesuaikan dengan '
+        'spesifikasi teknis serta harga lapangan.',
+      ),
+    ],
+  );
+}
+
 }
 
 // ============================================================
@@ -3492,709 +4193,4 @@ class _RabPageState extends State<RabPage> {
       ],
     );
   }
-}
- // ============================================================
-// BAGIAN 5A: MANAJEMEN MATERIAL DAN AKUN
-// Letakkan di dalam class _BuildCostHomeState
-// ============================================================
-
-String materialSearch = '';
-
-Widget materialPage() {
-  final query = materialSearch.trim().toLowerCase();
-
-  final filteredMaterials = materials.where((material) {
-    return material.name.toLowerCase().contains(query) ||
-        material.unit.toLowerCase().contains(query);
-  }).toList();
-
-  return ListView(
-    padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-    children: [
-      Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [bcNavy, bcBlue],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'DATABASE MATERIAL',
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 10,
-                letterSpacing: 1.3,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Harga Material Bangunan',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 21,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '${materials.length} material tersimpan',
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 13,
-              ),
-            ),
-            const SizedBox(height: 15),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    Icons.info_outline,
-                    color: Colors.white,
-                    size: 19,
-                  ),
-                  SizedBox(width: 9),
-                  Expanded(
-                    child: Text(
-                      'Perbarui harga sesuai survei toko dan kondisi '
-                      'daerah proyek. Harga di aplikasi merupakan '
-                      'referensi yang dapat diubah.',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        height: 1.5,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-      const SizedBox(height: 16),
-      TextField(
-        onChanged: (value) {
-          setState(() => materialSearch = value);
-        },
-        decoration: InputDecoration(
-          hintText: 'Cari material, misalnya semen...',
-          prefixIcon: const Icon(Icons.search),
-          suffixIcon: materialSearch.isEmpty
-              ? null
-              : IconButton(
-                  onPressed: () {
-                    setState(() => materialSearch = '');
-                  },
-                  icon: const Icon(Icons.close),
-                ),
-          filled: true,
-          fillColor: Colors.white,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide.none,
-          ),
-        ),
-      ),
-      const SizedBox(height: 16),
-      Row(
-        children: [
-          const Expanded(
-            child: Text(
-              'Daftar Material',
-              style: TextStyle(
-                color: bcNavy,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          Text(
-            '${filteredMaterials.length} item',
-            style: const TextStyle(
-              color: Colors.black54,
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ),
-      const SizedBox(height: 10),
-      if (filteredMaterials.isEmpty)
-        emptyState(
-          icon: Icons.inventory_2_outlined,
-          title: 'Material tidak ditemukan',
-          subtitle: 'Tambahkan material baru atau ubah kata pencarian.',
-        )
-      else
-        ...filteredMaterials.map(_materialCard),
-    ],
-  );
-}
-
-Widget _materialCard(BuildMaterial material) {
-  return Container(
-    margin: const EdgeInsets.only(bottom: 10),
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(15),
-      border: Border.all(color: const Color(0xFFE6EAF0)),
-    ),
-    child: Row(
-      children: [
-        Container(
-          width: 45,
-          height: 45,
-          decoration: BoxDecoration(
-            color: bcBlue.withValues(alpha: 0.09),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: const Icon(
-            Icons.inventory_2_outlined,
-            color: bcBlue,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                material.name,
-                style: const TextStyle(
-                  color: bcNavy,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                'Satuan: ${material.unit}',
-                style: const TextStyle(
-                  color: Colors.black54,
-                  fontSize: 12,
-                ),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                '${rupiah(material.price)} / ${material.unit}',
-                style: const TextStyle(
-                  color: bcBlue,
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ),
-        PopupMenuButton<String>(
-          onSelected: (value) {
-            if (value == 'edit') {
-              openMaterialForm(material: material);
-            } else if (value == 'delete') {
-              _deleteMaterial(material);
-            }
-          },
-          itemBuilder: (context) => const [
-            PopupMenuItem(
-              value: 'edit',
-              child: Row(
-                children: [
-                  Icon(Icons.edit_outlined),
-                  SizedBox(width: 8),
-                  Text('Edit'),
-                ],
-              ),
-            ),
-            PopupMenuItem(
-              value: 'delete',
-              child: Row(
-                children: [
-                  Icon(Icons.delete_outline, color: bcRed),
-                  SizedBox(width: 8),
-                  Text('Hapus'),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ],
-    ),
-  );
-}
-
-Future<void> openMaterialForm({BuildMaterial? material}) async {
-  final nameController = TextEditingController(
-    text: material?.name ?? '',
-  );
-  final unitController = TextEditingController(
-    text: material?.unit ?? 'sak',
-  );
-  final priceController = TextEditingController(
-    text: material == null ? '' : material.price.toString(),
-  );
-
-  final formKey = GlobalKey<FormState>();
-
-  final result = await showDialog<bool>(
-    context: context,
-    builder: (dialogContext) {
-      return AlertDialog(
-        title: Text(
-          material == null ? 'Tambah Material' : 'Edit Material',
-        ),
-        content: Form(
-          key: formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nama material',
-                    hintText: 'Contoh: Semen Portland',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Nama material wajib diisi';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: unitController,
-                  decoration: const InputDecoration(
-                    labelText: 'Satuan',
-                    hintText: 'sak, kg, m, m², m³, unit',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Satuan wajib diisi';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: priceController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: const InputDecoration(
-                    labelText: 'Harga per satuan (Rp)',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (parseNumber(value ?? '') < 0) {
-                      return 'Harga tidak boleh negatif';
-                    }
-                    if ((value ?? '').trim().isEmpty) {
-                      return 'Harga wajib diisi';
-                    }
-                    return null;
-                  },
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (formKey.currentState!.validate()) {
-                Navigator.pop(dialogContext, true);
-              }
-            },
-            child: const Text('Simpan'),
-          ),
-        ],
-      );
-    },
-  );
-
-  if (result == true) {
-    final newMaterial = BuildMaterial(
-      name: nameController.text.trim(),
-      unit: unitController.text.trim(),
-      price: parseNumber(priceController.text),
-    );
-
-    setState(() {
-      if (material == null) {
-        materials.add(newMaterial);
-      } else {
-        final index = materials.indexOf(material);
-        if (index >= 0) {
-          materials[index] = newMaterial;
-        }
-      }
-    });
-
-    await saveData();
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            material == null
-                ? 'Material berhasil ditambahkan.'
-                : 'Material berhasil diperbarui.',
-          ),
-        ),
-      );
-    }
-  }
-
-  nameController.dispose();
-  unitController.dispose();
-  priceController.dispose();
-}
-
-Future<void> _deleteMaterial(BuildMaterial material) async {
-  final confirm = await showDialog<bool>(
-    context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: const Text('Hapus material?'),
-      content: Text(
-        'Material "${material.name}" akan dihapus dari daftar.',
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(dialogContext, false),
-          child: const Text('Batal'),
-        ),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: bcRed,
-            foregroundColor: Colors.white,
-          ),
-          onPressed: () => Navigator.pop(dialogContext, true),
-          child: const Text('Hapus'),
-        ),
-      ],
-    ),
-  );
-
-  if (confirm == true) {
-    setState(() => materials.remove(material));
-    await saveData();
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Material berhasil dihapus.'),
-        ),
-      );
-    }
-  }
-}
-
-// ============================================================
-// HALAMAN AKUN DAN PENGATURAN
-// ============================================================
-
-Widget accountPage() {
-  return ListView(
-    padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-    children: [
-      Container(
-        padding: const EdgeInsets.all(22),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [bcNavy, bcBlue],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(22),
-        ),
-        child: Column(
-          children: [
-            Container(
-              width: 76,
-              height: 76,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.14),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.35),
-                  width: 2,
-                ),
-              ),
-              child: const Icon(
-                Icons.person_outline,
-                color: Colors.white,
-                size: 42,
-              ),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              username,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 5),
-            const Text(
-              'BUILDCOST V3',
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 12,
-                letterSpacing: 1.5,
-              ),
-            ),
-          ],
-        ),
-      ),
-      const SizedBox(height: 20),
-      const Text(
-        'Ringkasan Data',
-        style: TextStyle(
-          color: bcNavy,
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      const SizedBox(height: 12),
-      Row(
-        children: [
-          Expanded(
-            child: summaryCard(
-              'Proyek',
-              '${projects.length}',
-              Icons.apartment_outlined,
-              bcBlue,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: summaryCard(
-              'Material',
-              '${materials.length}',
-              Icons.inventory_2_outlined,
-              bcOrange,
-            ),
-          ),
-        ],
-      ),
-      const SizedBox(height: 22),
-      const Text(
-        'Pengaturan',
-        style: TextStyle(
-          color: bcNavy,
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      const SizedBox(height: 10),
-      _accountMenuTile(
-        icon: Icons.person_outline,
-        title: 'Ubah Nama Pengguna',
-        subtitle: 'Atur nama yang tampil di aplikasi',
-        onTap: _changeUsername,
-      ),
-      _accountMenuTile(
-        icon: Icons.storage_outlined,
-        title: 'Penyimpanan Lokal',
-        subtitle: 'Data disimpan di perangkat ini',
-        onTap: _showStorageInfo,
-      ),
-      _accountMenuTile(
-        icon: Icons.info_outline,
-        title: 'Tentang BUILDCOST',
-        subtitle: 'Informasi versi dan fungsi aplikasi',
-        onTap: _showAbout,
-      ),
-      const SizedBox(height: 20),
-      Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: const Color(0xFFE6EAF0)),
-        ),
-        child: const Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              Icons.shield_outlined,
-              color: bcGreen,
-              size: 22,
-            ),
-            SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'Data proyek dan material pada versi ini disimpan secara '
-                'lokal di perangkat. Data belum otomatis tersinkron '
-                'ke akun online atau perangkat lain.',
-                style: TextStyle(
-                  color: Colors.black54,
-                  fontSize: 12,
-                  height: 1.5,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    ],
-  );
-}
-
-Widget _accountMenuTile({
-  required IconData icon,
-  required String title,
-  required String subtitle,
-  required VoidCallback onTap,
-}) {
-  return Card(
-    margin: const EdgeInsets.only(bottom: 9),
-    child: ListTile(
-      leading: Container(
-        width: 42,
-        height: 42,
-        decoration: BoxDecoration(
-          color: bcBlue.withValues(alpha: 0.09),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Icon(icon, color: bcBlue),
-      ),
-      title: Text(
-        title,
-        style: const TextStyle(
-          color: bcNavy,
-          fontWeight: FontWeight.w600,
-          fontSize: 14,
-        ),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: const TextStyle(fontSize: 11),
-      ),
-      trailing: const Icon(
-        Icons.chevron_right,
-        color: Colors.black45,
-      ),
-      onTap: onTap,
-    ),
-  );
-}
-
-Future<void> _changeUsername() async {
-  final controller = TextEditingController(text: username);
-
-  final result = await showDialog<String>(
-    context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: const Text('Nama Pengguna'),
-      content: TextField(
-        controller: controller,
-        autofocus: true,
-        maxLength: 40,
-        decoration: const InputDecoration(
-          labelText: 'Nama',
-          hintText: 'Masukkan nama pengguna',
-          border: OutlineInputBorder(),
-        ),
-        onSubmitted: (value) {
-          Navigator.pop(dialogContext, value.trim());
-        },
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(dialogContext),
-          child: const Text('Batal'),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            Navigator.pop(
-              dialogContext,
-              controller.text.trim(),
-            );
-          },
-          child: const Text('Simpan'),
-        ),
-      ],
-    ),
-  );
-
-  controller.dispose();
-
-  if (result != null && result.trim().isNotEmpty) {
-    setState(() => username = result.trim());
-
-    await saveData();
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Nama pengguna berhasil disimpan.'),
-        ),
-      );
-    }
-  }
-}
-
-void _showStorageInfo() {
-  showDialog<void>(
-    context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: const Text('Penyimpanan Lokal'),
-      content: const Text(
-        'BUILDCOST menggunakan SharedPreferences untuk menyimpan '
-        'data proyek, material, dan nama pengguna di perangkat ini. '
-        'Data tidak otomatis tersedia di perangkat lain. '
-        'Menghapus data aplikasi atau menghapus aplikasi dapat '
-        'menghilangkan data lokal.',
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(dialogContext),
-          child: const Text('Mengerti'),
-        ),
-      ],
-    ),
-  );
-}
-
-void _showAbout() {
-  showAboutDialog(
-    context: context,
-    applicationName: 'BUILDCOST',
-    applicationVersion: '3.0',
-    applicationLegalese: 'Construction Planning & Cost Platform',
-    children: const [
-      SizedBox(height: 12),
-      Text(
-        'Aplikasi perencanaan proyek, pengelolaan material, '
-        'dan estimasi Rencana Anggaran Biaya.',
-      ),
-      SizedBox(height: 8),
-      Text(
-        'Hasil estimasi perlu diperiksa dan disesuaikan dengan '
-        'spesifikasi teknis serta harga lapangan.',
-      ),
-    ],
-  );
 }
